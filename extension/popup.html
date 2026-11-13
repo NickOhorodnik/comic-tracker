@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <title>Comic Tracker Bridge</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      width: 320px;
+      margin: 0;
+      padding: 16px;
+      background: #0f172a;
+      color: #f8fafc;
+    }
+    h1 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0 0 12px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #38bdf8;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .row {
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .row:last-child {
+      margin-bottom: 0;
+    }
+    .label {
+      color: #94a3b8;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 2px;
+    }
+    .value {
+      font-weight: 500;
+      word-break: break-all;
+    }
+    .cover-preview {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 4px;
+      background: #334155;
+      margin-bottom: 8px;
+    }
+    button {
+      width: 100%;
+      background: #0284c7;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #0369a1;
+    }
+    button:disabled {
+      background: #475569;
+      cursor: not-allowed;
+    }
+    .status {
+      font-size: 12px;
+      color: #4ade80;
+      text-align: center;
+      margin-top: 8px;
+    }
+    .error {
+      color: #f87171;
+      font-size: 12px;
+      text-align: center;
+      margin-top: 8px;
+    }
+    /* Switch styles */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #334155;
+      transition: .4s;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+    }
+    input:checked + .slider {
+      background-color: #0284c7;
+    }
+    input:focus + .slider {
+      box-shadow: 0 0 1px #0284c7;
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+    .slider.round {
+      border-radius: 20px;
+    }
+    .slider.round:before {
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <h1>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h12M6 10h12"/></svg>
+    Comic Tracker Bridge
+  </h1>
+
+  <div id="content">
+    <div class="card" id="previewCard" style="display: none;">
+      <img id="coverImg" class="cover-preview" alt="Cover preview" />
+      <div class="row">
+        <div class="label">Назва</div>
+        <div class="value" id="titleVal">—</div>
+      </div>
+      <div class="row" style="margin-top: 8px;">
+        <div class="label">Прогрес (Браузер)</div>
+        <div class="value" id="issuePageVal">—</div>
+      </div>
+      <div class="row" id="libraryStatus" style="margin-top: 8px; display: none;">
+        <div class="label">Статус</div>
+        <div class="value" style="color: #4ade80;">✓ У бібліотеці</div>
+      </div>
+    </div>
+
+    <div class="card" style="display: flex; align-items: center; justify-content: space-between; padding: 10px;">
+      <div style="font-size: 13px; font-weight: 500;">Авто-синхронізація</div>
+      <label class="switch">
+        <input type="checkbox" id="autoSyncToggle">
+        <span class="slider round"></span>
+      </label>
+    </div>
+
+    <div id="actions">
+      <button id="syncBtn" style="display: none;">Синхронізувати прогрес</button>
+      <button id="openBtn" style="display: none; background: #334155; margin-top: 8px;">Відкрити в Comic Tracker</button>
+      <button id="addBtn" style="display: none; background: #10b981; margin-top: 8px;">Додати до бібліотеки</button>
+    </div>
+    <div id="statusMsg"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

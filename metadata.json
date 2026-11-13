@@ -1,0 +1,6 @@
+{
+  "name": "Моя бібліотека коміксів",
+  "description": "Персональна бібліотека для відстеження коміксів із синхронізацією з Google Sheets",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

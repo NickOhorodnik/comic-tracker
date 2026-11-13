@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Comic Tracker Bridge",
+  "version": "1.0.0",
+  "description": "Imports comic metadata directly from active reader pages into Comic Tracker",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://com-x.life/*",
+    "https://*.com-x.life/*",
+    "https://batcave.biz/*",
+    "https://*.batcave.biz/*",
+    "https://ais-pre-3sur7uschwz56gjmq3nr7z-641967153718.europe-west2.run.app/*",
+    "https://ais-dev-3sur7uschwz56gjmq3nr7z-641967153718.europe-west2.run.app/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.com-x.life/*",
+        "https://*.batcave.biz/*",
+        "https://ais-pre-3sur7uschwz56gjmq3nr7z-641967153718.europe-west2.run.app/*",
+        "https://ais-dev-3sur7uschwz56gjmq3nr7z-641967153718.europe-west2.run.app/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}
