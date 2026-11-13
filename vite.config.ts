@@ -86,6 +86,7 @@ function apiPlugin(): Plugin {
 
 export default defineConfig(() => {
   return {
+    base: process.env.GITHUB_PAGES === 'true' ? '/comic-tracker/' : '/',
     plugins: [react(), tailwindcss(), apiPlugin()],
     resolve: {
       alias: {
@@ -101,4 +102,3 @@ export default defineConfig(() => {
     },
   };
 });
-
