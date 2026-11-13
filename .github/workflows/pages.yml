@@ -30,6 +30,7 @@ jobs:
         run: bun run build
         env:
           GITHUB_PAGES: 'true'
+          VITE_API_ORIGIN: 'https://comic-tracker.ai.studio'
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
