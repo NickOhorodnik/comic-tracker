@@ -15,6 +15,20 @@ const PORT = 3000;
 
 app.use(express.json());
 
+// Allow the public GitHub Pages frontend to call this API, but keep the proxy
+// unavailable to arbitrary browser origins.
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin === 'https://nickohorodnik.github.io') {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+  }
+  next();
+});
+
 // API: /api/parse-comic?url=...
 app.get('/api/parse-comic', async (req, res) => {
   try {
