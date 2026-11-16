@@ -4,7 +4,7 @@ import App from './App.tsx';
 import './index.css';
 
 // GitHub Pages hosts the static UI; API calls remain on the Comic Tracker server.
-const apiOrigin = import.meta.env.VITE_API_ORIGIN || '';
+const apiOrigin = (import.meta as any).env?.VITE_API_ORIGIN || '';
 if (apiOrigin) {
   const nativeFetch = window.fetch.bind(window);
   window.fetch = (input, init) => {
