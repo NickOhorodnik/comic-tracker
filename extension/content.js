@@ -1,8 +1,7 @@
 // Generic & Site-specific adapters for Comic Tracker Extension
 
 const ALLOWED_ORIGINS = [
-  'https://ais-pre-3sur7uschwz56gjmq3nr7z-641967153718.europe-west2.run.app',
-  'https://ais-dev-3sur7uschwz56gjmq3nr7z-641967153718.europe-west2.run.app'
+  'https://comic-tracker.allonsy.agency'
 ];
 
 
@@ -143,10 +142,10 @@ const Adapters = [
   }(),
 
   new class extends BaseAdapter {
-    constructor() { super('batcave', '1.0.0'); }
+    constructor() { super('batcave', '1.0.1'); }
     matches(url) { return url.includes('batcave.biz'); }
     extract(doc, url) {
-      const fieldSources = { title: 'title', cover_url: 'meta', series_url: 'canonical', current_issue: 'title', current_page: 'url' };
+      const fieldSources = { title: 'title', cover_url: 'reader-image', series_url: 'canonical', current_issue: 'title', current_page: 'url' };
       const warnings = [];
 
       let rawTitle = doc.title || '';
@@ -154,7 +153,13 @@ const Adapters = [
       let current_issue = extractIssueFromText(rawTitle);
       let current_page = extractPageFromUrl(url);
 
-      let cover_url = resolveUrl(doc.querySelector('meta[property="og:image"]')?.getAttribute('content') || '', url);
+      let cover_url = resolveUrl(
+        doc.querySelector('meta[property="og:image"], meta[name="twitter:image"], meta[itemprop="image"]')?.getAttribute('content') ||
+        doc.querySelector('img[alt^="Page:"][src], img[src*="img.batcave.biz"]')?.getAttribute('src') ||
+        doc.querySelector('link[rel="preload"][as="image"]')?.getAttribute('href') ||
+        '',
+        url
+      );
       if (!cover_url) warnings.push('cover_missing');
       
       let series_url = resolveUrl(doc.querySelector('link[rel="canonical"]')?.getAttribute('href') || '', url);

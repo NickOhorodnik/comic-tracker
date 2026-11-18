@@ -40,23 +40,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  const ALLOWED_ORIGINS = [
-    'https://ais-pre-3sur7uschwz56gjmq3nr7z-641967153718.europe-west2.run.app',
-    'https://ais-dev-3sur7uschwz56gjmq3nr7z-641967153718.europe-west2.run.app'
-  ];
+  const APP_ORIGIN = 'https://comic-tracker.allonsy.agency';
 
   async function getActiveOrigin() {
-    return new Promise((resolve) => {
-      chrome.tabs.query({}, (tabs) => {
-        for (const origin of ALLOWED_ORIGINS) {
-          if (tabs.some(t => t.url && t.url.startsWith(origin))) {
-            resolve(origin);
-            return;
-          }
-        }
-        resolve(ALLOWED_ORIGINS[1]); // Default to dev if none found
-      });
-    });
+    return APP_ORIGIN;
   }
 
   async function renderData(data) {
@@ -78,23 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
       coverImg.style.display = 'none';
     }
 
-    // Check if in library
-    try {
-      const origin = await getActiveOrigin();
-      const response = await fetch(`${origin}/api/comics/check?series_url=${encodeURIComponent(data.series_url)}`);
-      const { exists } = await response.json();
-      
-      if (exists) {
-        libraryStatus.style.display = 'block';
-        syncBtn.style.display = 'block';
-        openBtn.style.display = 'block';
-      } else {
-        addBtn.style.display = 'block';
-      }
-    } catch (e) {
-      console.error('Failed to check library status', e);
-      addBtn.style.display = 'block'; // Fallback
-    }
+    // The popup runs on the extension origin and must not call the app API directly.
+    // Let the app page handle the import and its own same-origin API requests.
+    addBtn.style.display = 'block';
   }
 
   // Define button handlers
@@ -106,10 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
   addBtn.addEventListener('click', async () => {
     const origin = await getActiveOrigin();
     const query = new URLSearchParams();
-    query.set('series_url', extractedData.seriesUrl || '');
-    query.set('reading_url', extractedData.readingUrl || '');
+    query.set('series_url', extractedData.series_url || '');
+    query.set('reading_url', extractedData.reading_url || '');
     query.set('title', extractedData.title || '');
-    query.set('cover_url', extractedData.coverUrl || '');
+    query.set('cover_url', extractedData.cover_url || '');
     query.set('current_issue', extractedData.current_issue || '');
     query.set('current_page', extractedData.current_page || '1');
     
@@ -123,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const origin = await getActiveOrigin();
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tabId = tabs[0]?.id;
-        const targetAppUrl = `${origin}/#sync?reading_url=${encodeURIComponent(extractedData.readingUrl)}&title=${encodeURIComponent(extractedData.title)}&cover_url=${encodeURIComponent(extractedData.coverUrl)}&series_url=${encodeURIComponent(extractedData.seriesUrl)}&current_issue=${encodeURIComponent(extractedData.current_issue || '')}&current_page=${encodeURIComponent(extractedData.current_page)}&client_timestamp=${encodeURIComponent(clientTimestamp)}&tab_id=${encodeURIComponent(tabId)}&sync_type=${type}`;
+        const targetAppUrl = `${origin}/#sync?reading_url=${encodeURIComponent(extractedData.reading_url)}&title=${encodeURIComponent(extractedData.title)}&cover_url=${encodeURIComponent(extractedData.cover_url)}&series_url=${encodeURIComponent(extractedData.series_url)}&current_issue=${encodeURIComponent(extractedData.current_issue || '')}&current_page=${encodeURIComponent(extractedData.current_page)}&client_timestamp=${encodeURIComponent(clientTimestamp)}&tab_id=${encodeURIComponent(tabId)}&sync_type=${type}`;
         chrome.tabs.create({ url: targetAppUrl }, () => {
           statusMsg.className = 'status';
           statusMsg.textContent = 'Прогрес синхронізовано!';

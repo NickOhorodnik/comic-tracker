@@ -32,10 +32,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === 'autoSyncUpdate') {
-    // Find the Comic Tracker app tab (supports both pre and dev preview)
+    // Find the published Comic Tracker app tab
     const allowedPatterns = [
-      'https://ais-pre-3sur7uschwz56gjmq3nr7z-641967153718.europe-west2.run.app/*',
-      'https://ais-dev-3sur7uschwz56gjmq3nr7z-641967153718.europe-west2.run.app/*'
+      'https://comic-tracker.allonsy.agency/*'
     ];
     
     allowedPatterns.forEach(pattern => {
