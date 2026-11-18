@@ -21,6 +21,7 @@ import {
 } from '../types/comic.ts';
 import { ComicCover } from './ComicCover.tsx';
 import { checkDuplicateComic, extractPageFromUrl, cleanComicTitle, extractIssueFromText } from '../lib/comicUtils.ts';
+import { makeCoverDataUrl } from '../lib/coverImage.ts';
 
 interface AddComicModalProps {
   isOpen: boolean;
@@ -60,6 +61,7 @@ export const AddComicModal: React.FC<AddComicModalProps> = ({
   // Form State
   const [title, setTitle] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
+  const [coverUploadError, setCoverUploadError] = useState<string | null>(null);
   const [seriesUrl, setSeriesUrl] = useState('');
   const [readingUrl, setReadingUrl] = useState('');
   const [currentIssue, setCurrentIssue] = useState('');
@@ -78,6 +80,18 @@ export const AddComicModal: React.FC<AddComicModalProps> = ({
   const [duplicateComic, setDuplicateComic] = useState<Comic | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleCoverFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setCoverUploadError(null);
+    try {
+      setCoverUrl(await makeCoverDataUrl(file));
+    } catch (error) {
+      setCoverUploadError(error instanceof Error ? error.message : 'Не вдалося завантажити обкладинку.');
+    }
+  };
 
   // Handle URL analyze
   const handleAnalyzeUrl = async (urlToTest?: string) => {
@@ -527,12 +541,24 @@ export const AddComicModal: React.FC<AddComicModalProps> = ({
                   URL обкладинки
                 </label>
                 <input
-                  type="url"
+                  type="text"
+                  inputMode="url"
                   value={coverUrl}
                   onChange={(e) => setCoverUrl(e.target.value)}
                   placeholder="https://.../cover.jpg"
                   className="w-full bg-[#181a29] border border-white/10 rounded-lg px-3 py-1.5 text-zinc-200 text-xs focus:outline-none focus:border-indigo-500 font-mono text-[11px]"
                 />
+                <label className="block text-[11px] font-semibold text-zinc-300 mt-2 mb-1">
+                  Або виберіть файл обкладинки
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCoverFile}
+                  className="w-full text-[11px] text-zinc-400 file:mr-2 file:rounded-md file:border-0 file:bg-zinc-800 file:px-2 file:py-1 file:text-zinc-200 hover:file:bg-zinc-700"
+                />
+                <p className="mt-1 text-[10px] text-zinc-500">Файл буде зменшено для збереження разом із коміксом.</p>
+                {coverUploadError && <p className="mt-1 text-[10px] text-rose-400">{coverUploadError}</p>}
               </div>
             </div>
           </div>
