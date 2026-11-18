@@ -86,8 +86,7 @@ function apiPlugin(): Plugin {
 
 export default defineConfig(() => {
   return {
-    // The site is served from the domain root on both GitHub Pages and its custom domain.
-    base: process.env.GITHUB_PAGES === 'true' ? '/comic-tracker/' : '/',
+    base: process.env.GITHUB_PAGES === 'true' ? './' : '/',
     plugins: [react(), tailwindcss(), apiPlugin()],
     resolve: {
       alias: {
