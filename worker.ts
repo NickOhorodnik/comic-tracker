@@ -1,5 +1,10 @@
 import { parseComicUrl } from './server/apiHandler.ts';
 
+const ALLOWED_ORIGINS = [
+  'https://nickohorodnik.github.io',
+  'https://comic-tracker.allonsy.agency',
+];
+
 export default {
   async fetch(request: Request, env: any, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -10,7 +15,7 @@ export default {
       'Vary': 'Origin',
     };
 
-    if (origin === 'https://nickohorodnik.github.io') {
+    if (origin && ALLOWED_ORIGINS.includes(origin)) {
       corsHeaders['Access-Control-Allow-Origin'] = origin;
     }
 

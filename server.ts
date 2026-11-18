@@ -15,11 +15,16 @@ const PORT = 3000;
 
 app.use(express.json());
 
+const ALLOWED_ORIGINS = [
+  'https://nickohorodnik.github.io',
+  'https://comic-tracker.allonsy.agency',
+];
+
 // Allow the public GitHub Pages frontend to call this API, but keep the proxy
 // unavailable to arbitrary browser origins.
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin === 'https://nickohorodnik.github.io') {
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
