@@ -92,6 +92,20 @@ export const AddComicModal: React.FC<AddComicModalProps> = ({
       setCoverUploadError(error instanceof Error ? error.message : 'Не вдалося завантажити обкладинку.');
     }
   };
+  const handleCoverPaste = async (event: React.ClipboardEvent<HTMLDivElement>) => {
+    const file = Array.from(event.clipboardData.items)
+      .find((item) => item.type.startsWith('image/'))
+      ?.getAsFile() || event.clipboardData.files[0];
+    if (!file) return;
+
+    event.preventDefault();
+    setCoverUploadError(null);
+    try {
+      setCoverUrl(await makeCoverDataUrl(file));
+    } catch (error) {
+      setCoverUploadError(error instanceof Error ? error.message : 'Не вдалося вставити обкладинку.');
+    }
+  };
 
   // Handle URL analyze
   const handleAnalyzeUrl = async (urlToTest?: string) => {
@@ -536,7 +550,7 @@ export const AddComicModal: React.FC<AddComicModalProps> = ({
               </div>
 
               {/* Cover URL */}
-              <div>
+              <div onPaste={handleCoverPaste}>
                 <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
                   URL обкладинки
                 </label>
@@ -548,6 +562,9 @@ export const AddComicModal: React.FC<AddComicModalProps> = ({
                   placeholder="https://.../cover.jpg"
                   className="w-full bg-[#181a29] border border-white/10 rounded-lg px-3 py-1.5 text-zinc-200 text-xs focus:outline-none focus:border-indigo-500 font-mono text-[11px]"
                 />
+                <p className="mt-1 text-[10px] text-zinc-500">
+                  Скопіюйте зображення на Batcave та натисніть Ctrl+V у полі обкладинки.
+                </p>
                 <label className="block text-[11px] font-semibold text-zinc-300 mt-2 mb-1">
                   Або виберіть файл обкладинки
                 </label>
