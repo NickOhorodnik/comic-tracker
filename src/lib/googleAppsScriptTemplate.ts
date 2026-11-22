@@ -26,7 +26,7 @@ function doGet(e) {
     for (var cIdx = 0; cIdx < collections.length; cIdx++) {
       var rawCol = collections[cIdx];
       var cName = String(rawCol.name || "").trim();
-      if (!cName) continue;
+      if (!cName || isInvalidFolderName(cName)) continue;
       var cIds = [];
       if (typeof rawCol.comic_ids === "string") {
         try {
@@ -70,13 +70,17 @@ function doGet(e) {
       } else if (Array.isArray(item.folders)) {
         comicFolders = item.folders;
       }
+      // Фільтруємо назви папок, відкидаючи часові мітки та дати
+      comicFolders = comicFolders.map(function(f) { return String(f || '').trim(); }).filter(function(f) {
+        return f && !isInvalidFolderName(f);
+      });
       item.folders = comicFolders;
 
       // Синхронізуємо зі словником collectionsMap
       var cId = String(item.id || "");
       if (cId && comicFolders.length > 0) {
         comicFolders.forEach(function(fName) {
-          var fKey = fName.trim().toLowerCase();
+          var fKey = fName.toLowerCase();
           if (collectionsMap[fKey]) {
             if (collectionsMap[fKey].comic_ids.indexOf(cId) === -1) {
               collectionsMap[fKey].comic_ids.push(cId);
@@ -169,6 +173,9 @@ function doPost(e) {
     // 1. Створення папки: додає рядок на сторінку COLLECTIONS
     if (action === "addCollection") {
       var col = body.collection;
+      if (!col || !col.name || isInvalidFolderName(col.name)) {
+        return respondJson({ success: false, error: "Неприпустима назва папки (не може бути системною датою)" });
+      }
       var colSheet = ss.getSheetByName("COLLECTIONS");
       if (colSheet) {
         appendCollectionRow(colSheet, col);
@@ -179,6 +186,9 @@ function doPost(e) {
     // 2. Оновлення папки та її складу: оновлює COLLECTIONS та колонку folders у COMICS
     if (action === "updateCollection") {
       var col = body.collection;
+      if (!col || !col.name || isInvalidFolderName(col.name)) {
+        return respondJson({ success: false, error: "Неприпустима назва папки (не може бути системною датою)" });
+      }
       var colSheet = ss.getSheetByName("COLLECTIONS");
       if (colSheet) {
         updateCollectionRow(colSheet, col);
@@ -196,6 +206,9 @@ function doPost(e) {
       var colId = body.id;
       var oldName = String(body.oldName || "").trim();
       var newName = String(body.newName || "").trim();
+      if (!newName || isInvalidFolderName(newName)) {
+        return respondJson({ success: false, error: "Неприпустима назва папки (не може бути системною датою)" });
+      }
       var colSheet = ss.getSheetByName("COLLECTIONS");
       if (colSheet) {
         renameCollectionRow(colSheet, colId, newName);
@@ -276,6 +289,7 @@ function doPost(e) {
         sheetCols.clearContents();
         sheetCols.appendRow(["id", "name", "comic_ids", "created_at", "updated_at"]);
         body.collections.forEach(function(c) {
+          if (!c || !c.name || isInvalidFolderName(c.name)) return;
           appendCollectionRow(sheetCols, c);
         });
       }
@@ -405,31 +419,65 @@ function getSheetData(sheet) {
   return rows;
 }
 
+function isInvalidFolderName(name) {
+  if (!name) return true;
+  var str = String(name).trim();
+  if (!str) return true;
+  if (/^\d{4}-\d{2}-\d{2}((T|\s)\d{2}:\d{2}(:\d{2})?(\.\d+)?Z?)?$/i.test(str)) {
+    return true;
+  }
+  if (str.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(str) && !isNaN(Date.parse(str))) {
+    return true;
+  }
+  return false;
+}
+
 function formatFoldersCell(folders) {
   if (Array.isArray(folders)) {
-    return folders.join(", ");
+    return folders
+      .map(function(f) { return String(f || "").trim(); })
+      .filter(function(f) { return f && !isInvalidFolderName(f); })
+      .join(", ");
   }
-  return String(folders || "");
+  var str = String(folders || "").trim();
+  return isInvalidFolderName(str) ? "" : str;
 }
 
 function parseFoldersCell(val) {
   if (!val) return [];
-  if (Array.isArray(val)) return val;
+  if (Array.isArray(val)) {
+    return val
+      .map(function(s) { return String(s || "").trim(); })
+      .filter(function(s) { return s && !isInvalidFolderName(s); });
+  }
   var str = String(val).trim();
-  if (!str) return [];
+  if (!str || isInvalidFolderName(str)) return [];
   try {
     var parsed = JSON.parse(str);
-    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map(function(s) { return String(s || "").trim(); })
+        .filter(function(s) { return s && !isInvalidFolderName(s); });
+    }
   } catch(e) {}
-  return str.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+  return str.split(",").map(function(s) { return s.trim(); }).filter(function(s) {
+    return s && !isInvalidFolderName(s);
+  });
 }
 
 function buildComicRowByHeaders(headers, c, existingRow) {
   var tagsStr = Array.isArray(c.tags) ? JSON.stringify(c.tags) : (c.tags || "[]");
   var foldersIdx = headers.indexOf("folders");
+  var rawFolders = Array.isArray(c.folders) ? c.folders : (c.folders ? [c.folders] : []);
+  var cleanFolders = rawFolders
+    .map(function(f) { return String(f || "").trim(); })
+    .filter(function(f) { return f && !isInvalidFolderName(f); });
   var foldersStr = c.folders !== undefined
-    ? formatFoldersCell(c.folders)
+    ? formatFoldersCell(cleanFolders)
     : (existingRow && foldersIdx !== -1 ? (existingRow[foldersIdx] || "") : "");
+  if (isInvalidFolderName(foldersStr)) {
+    foldersStr = "";
+  }
 
   var nowIso = new Date().toISOString();
   var createdIdx = headers.indexOf("created_at");
@@ -478,6 +526,13 @@ function appendComicRow(sheet, c) {
     : getComicsHeaders();
   if (headers.length === 0 || !headers[0]) {
     headers = getComicsHeaders();
+  }
+  if (c && c.folders) {
+    c.folders = (Array.isArray(c.folders) ? c.folders : [c.folders])
+      .map(function(f) { return String(f || "").trim(); })
+      .filter(function(f) { return f && !isInvalidFolderName(f); });
+  } else if (c) {
+    c.folders = [];
   }
   sheet.appendRow(buildComicRowByHeaders(headers, c, null));
 }
@@ -546,6 +601,7 @@ function updateQuickProgress(sheet, body) {
 }
 
 function appendCollectionRow(sheet, col) {
+  if (!col || !col.name || isInvalidFolderName(col.name)) return;
   var cidsStr = Array.isArray(col.comic_ids) ? JSON.stringify(col.comic_ids) : "[]";
   sheet.appendRow([
     col.id || ("col_" + Date.now()),
@@ -557,6 +613,7 @@ function appendCollectionRow(sheet, col) {
 }
 
 function updateCollectionRow(sheet, col) {
+  if (!col || !col.name || isInvalidFolderName(col.name)) return false;
   var data = sheet.getDataRange().getValues();
   if (data.length <= 1) {
     appendCollectionRow(sheet, col);
@@ -618,6 +675,7 @@ function deleteRowById(sheet, id) {
 
 // Оновлення колонки folders у таблиці COMICS для папки
 function syncFolderToComicsColumn(comicsSheet, col) {
+  if (!col || !col.name || isInvalidFolderName(col.name)) return;
   var data = comicsSheet.getDataRange().getValues();
   if (data.length <= 1) return;
   var headers = data[0].map(function(h) { return String(h).trim(); });

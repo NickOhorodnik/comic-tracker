@@ -31,6 +31,7 @@ import {
   INITIAL_PRIORITIES,
   INITIAL_STATUSES,
   INITIAL_TAGS,
+  isInvalidFolderName,
 } from './services/sheetsService.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { FilterBar } from './components/FilterBar.tsx';
@@ -367,6 +368,7 @@ export default function App() {
     const comicToSave: Comic = {
       ...newComic,
       tags: canonicalTagNames,
+      folders: (newComic.folders || []).filter((f) => !isInvalidFolderName(f)),
     };
 
     const updatedState = await SheetsService.addComic(comicToSave, currentState);
@@ -398,6 +400,7 @@ export default function App() {
     const comicToSave: Comic = {
       ...updatedComic,
       tags: canonicalTagNames,
+      folders: (updatedComic.folders || []).filter((f) => !isInvalidFolderName(f)),
     };
 
     const updatedState = await SheetsService.updateComic(comicToSave, currentState);
@@ -728,7 +731,7 @@ export default function App() {
       activeFolderId
   );
 
-  const activeFolder = (dbState.collections || []).find((f) => f.id === activeFolderId) || null;
+  const activeFolder = (dbState.collections || []).find((f) => f.id === activeFolderId && !isInvalidFolderName(f.name)) || null;
 
   return (
     <div className="min-h-screen bg-[#0c0d14] text-zinc-200 flex flex-col font-sans selection:bg-indigo-600 selection:text-white">

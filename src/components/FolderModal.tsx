@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Folder, FolderPlus, Edit3, AlertCircle } from 'lucide-react';
 import { Collection } from '../types/comic.ts';
+import { isInvalidFolderName } from '../services/sheetsService.ts';
 
 interface FolderModalProps {
   isOpen: boolean;
@@ -42,6 +43,10 @@ export const FolderModal: React.FC<FolderModalProps> = ({
     const trimmed = name.trim();
     if (!trimmed) {
       setError('Введіть назву папки');
+      return;
+    }
+    if (isInvalidFolderName(trimmed)) {
+      setError('Неприпустима назва папки: назва не може бути системною датою');
       return;
     }
     if (trimmed.length > 60) {

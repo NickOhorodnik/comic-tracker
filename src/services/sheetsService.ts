@@ -53,6 +53,23 @@ export const INITIAL_TAGS: TagItem[] = [
 ];
 
 /**
+ * Checks if a string is an invalid folder name (e.g. empty, or an ISO date/timestamp string like 2026-11-18T12:10:50.303Z)
+ */
+export function isInvalidFolderName(name: any): boolean {
+  if (!name || typeof name !== 'string') return true;
+  const trimmed = name.trim();
+  if (!trimmed) return true;
+  // Match ISO timestamps e.g. 2026-11-18T12:10:50.303Z, 2026-11-18 12:10:50, or YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}((T|\s)\d{2}:\d{2}(:\d{2})?(\.\d+)?Z?)?$/i.test(trimmed)) {
+    return true;
+  }
+  if (trimmed.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(trimmed) && !isNaN(Date.parse(trimmed))) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Deduplicate and merge tag lists deterministically by case-insensitive name and stable ID.
  * Resolves ID collisions without dropping any tag or losing comic tag assignments.
  */
@@ -265,12 +282,21 @@ export function verifyPersistenceFixture(): { success: boolean; logs: string[] }
     quickProgressComic.last_read_at === nowIso;
   logs.push(`Quick progress dual timestamp update: ${progressUpdatesBothTimestamps ? 'PASS' : 'FAIL'}`);
 
+  // 4. Folder date suppression check: ISO date strings must be rejected as folder names
+  const testIsoDate = '2026-11-18T12:10:50.303Z';
+  const rejectsIsoDate = isInvalidFolderName(testIsoDate);
+  const allowsNormalFolder = !isInvalidFolderName('Улюблені') && !isInvalidFolderName('Marvel');
+  const rejectsEmpty = isInvalidFolderName('');
+  const folderValidationPass = rejectsIsoDate && allowsNormalFolder && rejectsEmpty;
+  logs.push(`Folder date suppression check (rejects "${testIsoDate}"): ${folderValidationPass ? 'PASS' : 'FAIL'}`);
+
   const overallSuccess =
     hasComics &&
     hasCollectionMembership &&
     hasReadingTimestamps &&
     metadataPreservesLastRead &&
-    progressUpdatesBothTimestamps;
+    progressUpdatesBothTimestamps &&
+    folderValidationPass;
 
   if (overallSuccess) {
     console.log('[PersistenceFixture Verification] PASS:', logs.join(' | '));
@@ -340,6 +366,9 @@ export class SheetsService {
               .filter((c: Comic) => Boolean(c && c.id && !dummyIds.has(c.id)))
               .map((c: any) => ({
                 ...c,
+                folders: (Array.isArray(c.folders) ? c.folders : [])
+                  .map((f: any) => String(f || '').trim())
+                  .filter((f: string) => f && !isInvalidFolderName(f)),
                 progress_updated_at: c.progress_updated_at || c.updated_at || new Date().toISOString(),
                 last_read_at: c.last_read_at || null,
               }))
@@ -358,7 +387,7 @@ export class SheetsService {
                 created_at: col.created_at || new Date().toISOString(),
                 updated_at: col.updated_at || new Date().toISOString(),
               }))
-              .filter((col: Collection) => Boolean(col.id && col.name))
+              .filter((col: Collection) => Boolean(col.id && col.name && !isInvalidFolderName(col.name)))
           : [];
 
         const rawTags = Array.isArray(parsed.tags) ? parsed.tags : INITIAL_TAGS;
@@ -454,6 +483,9 @@ export class SheetsService {
               }
             }
 
+            // Exclude invalid folder names (ISO dates, timestamps, empty)
+            parsedFolders = parsedFolders.filter((f) => !isInvalidFolderName(f));
+
             return {
               ...c,
               tags: parsedTags,
@@ -468,20 +500,24 @@ export class SheetsService {
       let unmigratedLocalCollections: Collection[] | undefined = undefined;
 
       if (Array.isArray(remoteData.collections)) {
-        remoteCollections = remoteData.collections.map((col: any) => ({
-          id: String(col.id),
-          name: String(col.name).trim(),
-          comic_ids: Array.isArray(col.comic_ids)
-            ? col.comic_ids.filter((cid: any) => typeof cid === 'string')
-            : [],
-          created_at: col.created_at || new Date().toISOString(),
-          updated_at: col.updated_at || new Date().toISOString(),
-        }));
+        remoteCollections = remoteData.collections
+          .filter((col: any) => col && col.name && !isInvalidFolderName(String(col.name)))
+          .map((col: any) => ({
+            id: String(col.id),
+            name: String(col.name).trim(),
+            comic_ids: Array.isArray(col.comic_ids)
+              ? col.comic_ids.filter((cid: any) => typeof cid === 'string')
+              : [],
+            created_at: col.created_at || new Date().toISOString(),
+            updated_at: col.updated_at || new Date().toISOString(),
+          }));
 
         // Reconcile: if comic has folders in its folders column, ensure the collection includes this comic ID
+        // Never auto-create folders from comic row cells
         remoteComics.forEach((comic) => {
           if (Array.isArray(comic.folders)) {
             comic.folders.forEach((fName) => {
+              if (isInvalidFolderName(fName)) return;
               const matchedCol = remoteCollections.find(
                 (col) => col.name.toLowerCase() === fName.toLowerCase()
               );
@@ -492,17 +528,24 @@ export class SheetsService {
           }
         });
 
+        // Filter localFallback collections as well
+        const validLocalCollections = (localFallback.collections || []).filter(
+          (col) => !isInvalidFolderName(col.name)
+        );
+
         // Check if remote collections is empty BUT local cache has folders and hasn't been migrated
         if (
           remoteCollections.length === 0 &&
-          localFallback.collections.length > 0 &&
+          validLocalCollections.length > 0 &&
           !this.isCollectionsMigrated()
         ) {
-          unmigratedLocalCollections = localFallback.collections;
+          unmigratedLocalCollections = validLocalCollections;
         }
       } else {
         // Fallback if older Apps Script code didn't return collections key
-        remoteCollections = localFallback.collections;
+        remoteCollections = (localFallback.collections || []).filter(
+          (col) => !isInvalidFolderName(col.name)
+        );
       }
 
       // Merge and deduplicate TAGS dictionary case-insensitively with ID collision resolution
@@ -534,6 +577,10 @@ export class SheetsService {
 
   // Add comic
   public static async addComic(comic: Comic, currentState: AppDatabaseState): Promise<AppDatabaseState> {
+    const cleanComic: Comic = {
+      ...comic,
+      folders: (comic.folders || []).filter((f) => !isInvalidFolderName(f)),
+    };
     const scriptUrl = this.getSavedScriptUrl();
     if (scriptUrl) {
       const res = await fetch('/api/sheets-proxy', {
@@ -542,7 +589,7 @@ export class SheetsService {
         body: JSON.stringify({
           scriptUrl,
           action: 'addComic',
-          comic,
+          comic: cleanComic,
         }),
       });
       const data = await res.json();
@@ -551,14 +598,19 @@ export class SheetsService {
       }
     }
 
-    const updatedComics = [comic, ...currentState.comics];
-    const newState = { ...currentState, comics: updatedComics };
+    const updatedComics = [cleanComic, ...currentState.comics];
+    const cleanCollections = (currentState.collections || []).filter((col) => !isInvalidFolderName(col.name));
+    const newState = { ...currentState, comics: updatedComics, collections: cleanCollections };
     this.saveLocalState(newState);
     return newState;
   }
 
   // Update comic
   public static async updateComic(comic: Comic, currentState: AppDatabaseState): Promise<AppDatabaseState> {
+    const cleanComic: Comic = {
+      ...comic,
+      folders: (comic.folders || []).filter((f) => !isInvalidFolderName(f)),
+    };
     const scriptUrl = this.getSavedScriptUrl();
     if (scriptUrl) {
       const res = await fetch('/api/sheets-proxy', {
@@ -567,7 +619,7 @@ export class SheetsService {
         body: JSON.stringify({
           scriptUrl,
           action: 'updateComic',
-          comic,
+          comic: cleanComic,
         }),
       });
       const data = await res.json();
@@ -576,8 +628,9 @@ export class SheetsService {
       }
     }
 
-    const updatedComics = currentState.comics.map((c) => (c.id === comic.id ? comic : c));
-    const newState = { ...currentState, comics: updatedComics };
+    const updatedComics = currentState.comics.map((c) => (c.id === cleanComic.id ? cleanComic : c));
+    const cleanCollections = (currentState.collections || []).filter((col) => !isInvalidFolderName(col.name));
+    const newState = { ...currentState, comics: updatedComics, collections: cleanCollections };
     this.saveLocalState(newState);
     return newState;
   }
@@ -769,10 +822,13 @@ export class SheetsService {
     if (!trimmed) {
       throw new Error('Назва папки не може бути порожньою');
     }
+    if (isInvalidFolderName(trimmed)) {
+      throw new Error('Неприпустима назва папки: назва не може бути системною датою');
+    }
     if (trimmed.length > 60) {
       throw new Error('Назва папки не повинна перевищувати 60 символів');
     }
-    const collections = currentState.collections || [];
+    const collections = (currentState.collections || []).filter((c) => !isInvalidFolderName(c.name));
     const exists = collections.some((c) => c.name && c.name.toLowerCase() === trimmed.toLowerCase());
     if (exists) {
       throw new Error(`Папка з назвою «${trimmed}» вже існує`);
@@ -822,10 +878,13 @@ export class SheetsService {
     if (!trimmed) {
       throw new Error('Назва папки не може бути порожньою');
     }
+    if (isInvalidFolderName(trimmed)) {
+      throw new Error('Неприпустима назва папки: назва не може бути системною датою');
+    }
     if (trimmed.length > 60) {
       throw new Error('Назва папки не повинна перевищувати 60 символів');
     }
-    const collections = currentState.collections || [];
+    const collections = (currentState.collections || []).filter((c) => !isInvalidFolderName(c.name));
     const duplicate = collections.some(
       (c) => c.id !== id && c.name && c.name.toLowerCase() === trimmed.toLowerCase()
     );
@@ -1087,14 +1146,20 @@ export class SheetsService {
     const scriptUrl = this.getSavedScriptUrl();
     if (!scriptUrl) throw new Error('URL Google Apps Script не налаштовано');
 
+    const cleanCollections = (currentState.collections || []).filter((c) => !isInvalidFolderName(c.name));
+    const cleanComics = (currentState.comics || []).map((c) => ({
+      ...c,
+      folders: (c.folders || []).filter((f) => !isInvalidFolderName(f)),
+    }));
+
     const res = await fetch('/api/sheets-proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         scriptUrl,
         action: 'syncAll',
-        comics: currentState.comics,
-        collections: currentState.collections,
+        comics: cleanComics,
+        collections: cleanCollections,
         tags: currentState.tags,
         publishers: currentState.publishers,
       }),
