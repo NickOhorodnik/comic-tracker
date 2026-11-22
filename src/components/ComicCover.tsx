@@ -73,7 +73,7 @@ export const ComicCover: React.FC<ComicCoverProps> = ({
         src={cleanSrc}
         alt={alt}
         loading="lazy"
-        referrerPolicy={cleanSrc.includes('img.batcave.biz') ? 'strict-origin-when-cross-origin' : 'no-referrer'}
+        referrerPolicy="no-referrer"
         onLoad={() => setIsLoaded(true)}
         onError={() => setHasError(true)}
         className={`w-full h-full object-cover transition-opacity duration-300 ${
